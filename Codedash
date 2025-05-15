@@ -1,0 +1,108 @@
+// EngineDashboard.jsx
+import React, { useEffect, useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Bar } from "react-chartjs-2";
+import "chart.js/auto";
+
+const fetchEngineData = async () => {
+  const response = await fetch("http://localhost:5000/api/engine/latest");
+  return await response.json();
+};
+
+export default function EngineDashboard() {
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const latest = await fetchEngineData();
+      setData(latest);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (!data) return <div>Loading...</div>;
+
+  const torqueValues = data.torque.map((item) => item.value);
+  const torqueLabels = data.torque.map((item) => item.bolt);
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
+      <Card>
+        <CardContent>
+          <h2 className="text-xl font-bold">Engine ID: {data.engineId}</h2>
+          <p>Timestamp: {data.timestamp}</p>
+          <p>Status: {data.status}</p>
+          <ul className="mt-2">
+            {data.missingComponents.map((comp, idx) => (
+              <li key={idx} className="text-red-500">❌ {comp}</li>
+            ))}
+            {data.missingComponents.length === 0 && <li className="text-green-500">✅ All components present</li>}
+          </ul>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <h2 className="text-xl font-bold mb-2">Torque Readings (Nm)</h2>
+          <Bar
+            data={{
+              labels: torqueLabels,
+              datasets: [
+                {
+                  label: "Torque (Nm)",
+                  data: torqueValues,
+                  backgroundColor: "rgba(54, 162, 235, 0.6)",
+                },
+              ],
+            }}
+            options={{
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  suggestedMax: 60,
+                },
+              },
+            }}
+          />
+        </CardContent>
+      </Card>
+
+      <Card className="col-span-1 md:col-span-2">
+        <CardContent>
+          <h2 className="text-xl font-bold">Live Camera Feed</h2>
+          <img src="http://localhost:5000/static/camera_feed.jpg" alt="Live Feed" className="w-full mt-2 rounded-lg shadow" />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <h2 className="text-xl font-bold">Component Summary</h2>
+          <ul>
+            {data.components.map((comp, idx) => (
+              <li key={idx} className={comp.present ? "text-green-500" : "text-red-500"}>
+                {comp.name}: {comp.present ? "Present" : "Missing"}
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <h2 className="text-xl font-bold">Alerts</h2>
+          {data.alerts.length === 0 ? (
+            <p className="text-green-500">No current alerts</p>
+          ) : (
+            <ul>
+              {data.alerts.map((alert, idx) => (
+                <li key={idx} className="text-red-600">⚠️ {alert}</li>
+              ))}
+            </ul>
+          )}
+          <Button className="mt-2">Acknowledge</Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
